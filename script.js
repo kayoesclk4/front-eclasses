@@ -6,6 +6,37 @@ let state = {
     matches: []
 };
 
+// ==================== CONFIGURAÇÃO DA API ====================
+const API_URL = 'http://localhost:3000';
+
+// Funções para trabalhar com a API de usuários
+async function carregarUsuarios(filtroNome = '') {
+  let url = `${API_URL}/usuarios`;
+  
+  if (filtroNome) {
+    url += `?nome=${filtroNome}`;
+  }
+
+  try {
+    const response = await fetch(url);
+    const usuarios = await response.json();
+    console.log('Usuários carregados:', usuarios);
+    return usuarios;
+  } catch (error) {
+    console.error('Erro ao carregar usuários:', error);
+    return [];
+  }
+}
+
+// Exemplo de uso (você pode chamar depois)
+async function testarAPI() {
+  const todos = await carregarUsuarios();
+  console.log("Todos os usuários:", todos);
+
+  const filtrados = await carregarUsuarios("João");
+  console.log("Usuários com 'João':", filtrados);
+}
+
 // Application Initialization
 document.addEventListener('DOMContentLoaded', async () => {
     await loadInitialData();
@@ -20,7 +51,7 @@ async function loadInitialData() {
         state = JSON.parse(savedState);
     } else {
         try {
-            const response = await fetch('data.json');
+            const response = await fetch('/frontend/data.json');
             state = await response.json();
             saveState();
         } catch (error) {
@@ -345,3 +376,9 @@ function finishMatch(id) {
         saveState();
     }
 }
+
+// Testar a API quando a página carregar
+document.addEventListener('DOMContentLoaded', () => {
+  console.log("Página carregada - Testando API...");
+  testarAPI();
+});
