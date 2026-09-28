@@ -117,6 +117,7 @@ function renderizarJogos() {
             <span class="card-tag">${j.genre}</span>
             <h3>${j.name}</h3>
             <p class="subtitle">ID: ${j.id}</p>
+            <button onclick="removerRegistro('jogos', ${j.id})" style="margin-top: 0.5rem; font-size: 0.7rem;">Apagar</button>
         </div>
     `).join('');
 }
@@ -128,6 +129,7 @@ function renderizarTimes() {
             <span class="card-tag">EQUIPE</span>
             <h3>${t.name}</h3>
             <p class="subtitle">${state.competidores.filter(c => c.teamId == t.id).length} Jogadores</p>
+            <button onclick="removerRegistro('times', ${t.id})" style="margin-top: 0.5rem; font-size: 0.7rem;">Apagar</button>
         </div>
     `).join('');
 }
@@ -141,6 +143,7 @@ function renderizarCompetidores() {
                 <span class="card-tag">${time?.name || 'Sem Time'}</span>
                 <h3>${c.nickname}</h3>
                 <p class="subtitle">${c.name}</p>
+                <button onclick="removerRegistro('competidores', ${c.id})" style="margin-top: 0.5rem; font-size: 0.7rem;">Apagar</button>
             </div>
         `;
     }).join('');
@@ -175,6 +178,7 @@ function renderizarConfrontos() {
                     ${c.status === 'scheduled'
                         ? `<button onclick="encerrarConfrontos(${c.id})" style="padding: 4px 8px; font-size: 0.7rem; margin-left: 8px;">Finalizar</button>`
                         : ''}
+                    <button onclick="removerRegistro('confrontos', ${c.id})" style="padding: 4px 8px; font-size: 0.7rem; margin-left: 8px;">Apagar</button>
                 </div>
             </div>
         `;
@@ -293,13 +297,11 @@ window.fecharModal = function () {
     setTimeout(() => { modal.style.display = 'none'; }, 300);
 };
 
-window.salvarItem = function (event, colecao) {
+window.salvarItem = async function (event, colecao) {
     event.preventDefault();
     const dados = Object.fromEntries(new FormData(event.target).entries());
 
-    const maxId = state[colecao].reduce((max, item) => (item.id > max ? item.id : max), 0);
-    dados.id = maxId + 1;
-
+    // O id agora é gerado pelo servidor (não gera mais aqui no front)
     if (dados.teamId) dados.teamId = Number(dados.teamId);
     if (dados.gameId) dados.gameId = Number(dados.gameId);
     if (dados.team1Id) dados.team1Id = Number(dados.team1Id);
@@ -307,12 +309,17 @@ window.salvarItem = function (event, colecao) {
     if (dados.score1 !== undefined) dados.score1 = Number(dados.score1);
     if (dados.score2 !== undefined) dados.score2 = Number(dados.score2);
 
-    state[colecao].push(dados);
-    renderizarTudo();
-    fecharModal();
+    try {
+        await criarItem(colecao, dados);
+        await carregarDados(); // busca os dados atualizados (já salvos no data.json)
+        renderizarTudo();
+        fecharModal();
+    } catch (erro) {
+        // erro já tratado (alert) dentro de criarItem/enviarDados
+    }
 };
 
-window.encerrarConfrontos = function (id) {
+window.encerrarConfrontos = async function (id) {
     const confronto = state.confrontos.find(c => c.id == id);
     if (!confronto) return;
 
@@ -323,9 +330,28 @@ window.encerrarConfrontos = function (id) {
     const placar2 = prompt(`Placar para ${time2?.name}:`, '0');
 
     if (placar1 !== null && placar2 !== null) {
-        confronto.score1 = Number(placar1);
-        confronto.score2 = Number(placar2);
-        confronto.status = 'finished';
+        try {
+            await atualizarItem('confrontos', id, {
+                score1: Number(placar1),
+                score2: Number(placar2),
+                status: 'finished',
+            });
+            await carregarDados();
+            renderizarTudo();
+        } catch (erro) {
+            // erro já tratado (alert) dentro de atualizarItem/enviarDados
+        }
+    }
+};
+
+window.removerRegistro = async function (colecao, id) {
+    if (!confirm('Tem certeza que deseja apagar este registro?')) return;
+
+    try {
+        await removerItem(colecao, id);
+        await carregarDados();
         renderizarTudo();
+    } catch (erro) {
+        // erro já tratado (alert) dentro de removerItem
     }
 };
